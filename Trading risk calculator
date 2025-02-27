@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Risk Calculator</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 0;
+            background-color: #f8f9fa;
+        }
+        h1 {
+            color: #212529;
+            margin-top: 20px;
+        }
+        .container {
+            width: 90%;
+            max-width: 450px;
+            margin: 20px auto;
+        }
+        .calculator {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        }
+        .divider {
+            height: 2px;
+            background: #007BFF;
+            margin: 20px 0;
+        }
+        input, select, button {
+            width: 90%;
+            padding: 10px;
+            margin-top: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #007BFF;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        p {
+            font-weight: bold;
+            color: #212529;
+        }
+        .footer {
+            margin-top: 20px;
+            font-size: 14px;
+            color: #555;
+        }
+        @media (max-width: 480px) {
+            .container {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Trading Risk Calculator</h1>
+    <div class="container">
+
+        <!-- Bollinger Bands Standard Deviation Calculator -->
+        <div class="calculator">
+            <h2>📈 Bollinger Bands Std Dev</h2>
+            <input type="number" id="upperBand" placeholder="Upper Band ($)">
+            <input type="number" id="middleBand" placeholder="Middle Band ($)">
+            <input type="number" id="lowerBand" placeholder="Lower Band ($)">
+            <button id="stdDevBtn">Calculate</button>
+            <p id="stdDevResult"></p>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- VaR & CVaR Calculator -->
+        <div class="calculator">
+            <h2>📊 VaR & CVaR Calculator</h2>
+            <input type="number" id="tradeAmount" placeholder="Trade Amount ($)">
+            <input type="number" id="stdDev" placeholder="Standard Deviation (σ)">
+            <select id="confidenceLevel">
+                <option value="1.645">95% Confidence (Z = 1.645)</option>
+                <option value="2.33">99% Confidence (Z = 2.33)</option>
+            </select>
+            <button id="varBtn">Calculate</button>
+            <p id="varResult"></p>
+            <p id="cvarResult"></p>
+        </div>
+
+        <div class="divider"></div>
+
+        <!-- Stop-Loss Calculator Based on VaR & CVaR -->
+        <div class="calculator">
+            <h2>📉 Stop-Loss Calculator</h2>
+            <input type="number" id="entryPrice" placeholder="Entry Price ($)">
+            <select id="stopLossMethod">
+                <option value="var">VaR-Based Stop-Loss</option>
+                <option value="cvar">CVaR-Based Stop-Loss</option>
+            </select>
+            <button id="stopLossBtn">Calculate</button>
+            <p id="stopLossResult"></p>
+        </div>
+
+        <p class="footer">by TD Daniel</p>
+
+    </div>
+
+    <script>
+        window.onload = function () {
+            let lastVaR = null;
+            let lastCVaR = null;
+
+            document.getElementById("stdDevBtn").addEventListener("click", function () {
+                let upperBand = parseFloat(document.getElementById("upperBand").value);
+                let middleBand = parseFloat(document.getElementById("middleBand").value);
+                let lowerBand = parseFloat(document.getElementById("lowerBand").value);
+
+                if (isNaN(upperBand) || isNaN(middleBand) || isNaN(lowerBand) || upperBand <= 0 || middleBand <= 0 || lowerBand <= 0) {
+                    alert("Please enter valid Bollinger Band values.");
+                    return;
+                }
+
+                let stdDev = ((upperBand - middleBand) + (middleBand - lowerBand)) / 2;
+                document.getElementById("stdDevResult").innerHTML = `Standard Deviation (σ): ${stdDev.toFixed(4)}`;
+            });
+
+            document.getElementById("varBtn").addEventListener("click", function () {
+                let tradeAmount = parseFloat(document.getElementById("tradeAmount").value);
+                let stdDev = parseFloat(document.getElementById("stdDev").value);
+                let zScore = parseFloat(document.getElementById("confidenceLevel").value);
+                let confidenceLevel = (zScore === 1.645) ? 0.95 : 0.99;
+
+                if (isNaN(tradeAmount) || isNaN(stdDev) || tradeAmount <= 0 || stdDev <= 0) {
+                    alert("Please enter valid trade amount and standard deviation.");
+                    return;
+                }
+
+                let VaR = zScore * stdDev * tradeAmount;
+                let pdf = Math.exp(-Math.pow(zScore, 2) / 2) / Math.sqrt(2 * Math.PI);
+                let CVaR = (pdf / (1 - confidenceLevel)) * stdDev * tradeAmount;
+
+                document.getElementById("varResult").innerHTML = `VaR: $${VaR.toFixed(2)}`;
+                document.getElementById("cvarResult").innerHTML = `CVaR: $${CVaR.toFixed(2)}`;
+
+                lastVaR = VaR;
+                lastCVaR = CVaR;
+            });
+
+            document.getElementById("stopLossBtn").addEventListener("click", function () {
+                let entryPrice = parseFloat(document.getElementById("entryPrice").value);
+                let stopLossMethod = document.getElementById("stopLossMethod").value;
+
+                if (isNaN(entryPrice) || entryPrice <= 0) {
+                    alert("Please enter a valid entry price.");
+                    return;
+                }
+
+                if (!lastVaR || !lastCVaR) {
+                    alert("Please calculate VaR & CVaR first.");
+                    return;
+                }
+
+                let stopLoss = stopLossMethod === "var" ? entryPrice - lastVaR : entryPrice - lastCVaR;
+                document.getElementById("stopLossResult").innerHTML = `Stop-Loss: $${stopLoss.toFixed(2)}`;
+            });
+        };
+    </script>
+
+</body>
+</html>
